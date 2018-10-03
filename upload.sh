@@ -21,9 +21,12 @@ function get_archived_map_dir() {
 }
 
 function main() {
-	if [ -f "/var/run/shm/navmap*.ppm" ]; then
-		map_file="/var/run/shm/navmap*.ppm"
+	if [ -f "$(ls /var/run/shm/navmap*.ppm)" ]; then
+		map_file="$(ls /var/run/shm/navmap*.ppm)"
 		slam_file="/var/run/shm/SLAM_fprintf.log"
+
+		# Map is written at full minute, lets wait a moment
+		sleep 5
 
 		cp "${map_file}" /tmp/navmap.ppm
 		cp "${slam_file}" /tmp/slam.log
@@ -43,14 +46,14 @@ function main() {
 		shasum -c /mnt/data/map_upload.sums && exit 0 || true
 	fi
 
-	shasum /tmp/navmap.ppm /tmp/slam.log >/mnt/data/map_upload.sums
-
 	curl -sSfL \
 		-F "map=@/tmp/navmap.ppm" \
 		-F "sum_map=$(sum /tmp/navmap.ppm)" \
 		-F "slam=@/tmp/slam.log" \
 		-F "sum_slam=$(sum /tmp/slam.log)" \
 		http://10.229.2.2:1240/upload
+
+	shasum /tmp/navmap.ppm /tmp/slam.log >/mnt/data/map_upload.sums
 }
 
 function sum() {
