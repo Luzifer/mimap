@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/Luzifer/rconfig"
+	"github.com/Luzifer/rconfig/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -65,6 +65,7 @@ func uploadHandler(res http.ResponseWriter, r *http.Request) {
 }
 
 func mapHandler(res http.ResponseWriter, r *http.Request) {
+	res.Header().Set("Cache-Control", "private, max-age=60")
 	http.ServeFile(res, r, "/data/map.png")
 }
 
