@@ -7,7 +7,7 @@ RUN set -ex \
  && apk add --update git \
  && go install -ldflags "-X main.version=$(git describe --tags || git rev-parse --short HEAD || echo dev)"
 
-FROM python:3-alpine
+FROM python:3.9-alpine
 
 LABEL maintainer "Knut Ahlers <knut@ahlers.me>"
 
