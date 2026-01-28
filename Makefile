@@ -1,6 +1,6 @@
 default:
 
-test-build-map: test-generate
+test-build-map: test-generate-map
 	sha512sum -c <test/checksums.sha512
 
 test-generate-map: test/navmap.ppm
