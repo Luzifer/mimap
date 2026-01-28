@@ -64,10 +64,13 @@ def build_map(slam_log_data, map_image_data):
 
     map_image = Image.open(io.BytesIO(map_image_data))
     map_image = map_image.convert('RGBA')
-    map_image = map_image.resize((
-        map_image.size[0]*resize_factor,
-        map_image.size[0]*resize_factor,
-    ))
+    map_image = map_image.resize(
+        size=(
+            map_image.size[0]*resize_factor,
+            map_image.size[0]*resize_factor,
+        ),
+        resample=Image.Resampling.NEAREST,
+    )
 
     # calculate center of the image
     center_x = map_image.size[0] / 2
@@ -110,9 +113,14 @@ def build_map(slam_log_data, map_image_data):
     # crop image
     bgcolor_image = Image.new('RGBA', map_image.size,
                               color_definition["grey"])
-    cropbox = ImageChops.subtract(map_image, bgcolor_image).getbbox()
-    cropbox = (cropbox[0]-20, cropbox[1]-20, cropbox[2]+20, cropbox[3]+20)
-    map_image = map_image.crop(cropbox)
+    cropbox = ImageChops.subtract_modulo(map_image, bgcolor_image).getbbox(alpha_only=False)
+    if cropbox is None:
+        raise Exception('unable to determine image bbox')
+
+    map_image = map_image.crop((
+        cropbox[0]-20, cropbox[1]-20,
+        cropbox[2]+20, cropbox[3]+20
+    ))
 
     # and replace background with transparent pixels
     pixdata = map_image.load()
@@ -147,7 +155,7 @@ and draw the path into the map. Outputs the map as a PNG image.
     parser.add_argument(
         "-slam",
         default="SLAM_fprintf.log",
-        required=False)
+        required=True)
     parser.add_argument(
         "-map",
         required=True)

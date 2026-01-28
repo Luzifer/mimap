@@ -1,1 +1,4 @@
 mimap
+test/map.png
+test/navmap.ppm
+!test/slam.log

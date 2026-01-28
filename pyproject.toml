@@ -1,0 +1,8 @@
+[project]
+name = "mimap"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pillow==12.1.0",
+]

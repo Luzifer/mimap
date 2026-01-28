@@ -1,17 +1,22 @@
-FROM golang:alpine as builder
+FROM golang:1.25-alpine AS builder
 
-COPY . /go/src/github.com/Luzifer/mimap
-WORKDIR /go/src/github.com/Luzifer/mimap
+COPY . /src/mimap
+WORKDIR /src/mimap
 
 RUN set -ex \
  && apk add --update git \
- && go install -ldflags "-X main.version=$(git describe --tags || git rev-parse --short HEAD || echo dev)"
+ && go install \
+      -ldflags "-X main.version=$(git describe --tags --always || echo dev)" \
+      -mod=readonly \
+      -modcacherw \
+      -trimpath
 
-FROM python:3.9-alpine
 
-LABEL maintainer "Knut Ahlers <knut@ahlers.me>"
+FROM python:3.14-alpine
 
-COPY --from=builder /go/src/github.com/Luzifer/mimap/requirements.txt /src/requirements.txt
+LABEL maintainer="Knut Ahlers <knut@ahlers.me>"
+
+COPY pyproject.toml /src/
 
 RUN set -ex \
  && apk --no-cache add \
@@ -19,12 +24,12 @@ RUN set -ex \
       ca-certificates \
       jpeg-dev \
       zlib-dev \
- && pip install -r /src/requirements.txt \
+ && pip install -e /src/ \
  && apk --no-cache del \
       build-base
 
-COPY --from=builder /go/bin/mimap /usr/local/bin/mimap
-COPY --from=builder /go/src/github.com/Luzifer/mimap/build_map.py /src/
+COPY --from=builder /go/bin/mimap           /usr/local/bin/mimap
+COPY --from=builder /src/mimap/build_map.py /src/
 
 EXPOSE 3000
 VOLUME ["/data"]
