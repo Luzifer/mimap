@@ -12,7 +12,7 @@ RUN set -ex \
       -trimpath
 
 
-FROM python:3.14-alpine@sha256:01f125438100bb6b5770c0b1349e5200b23ca0ae20a976b5bd8628457af607ae
+FROM python:3.14-alpine@sha256:e9895f97d51458a5039acc5e622e0ffda5f3eface7603803443d3f9f51bb7ab9
 
 LABEL maintainer="Knut Ahlers <knut@ahlers.me>"
 
