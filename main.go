@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/Luzifer/rconfig/v2"
 	"github.com/pkg/errors"
@@ -85,14 +86,26 @@ func storeFile(r *http.Request, field, outname string) error {
 		return fmt.Errorf("File hash for %q did not match: %q != %q", field, hash, r.FormValue("sum_"+field))
 	}
 
-	of, err := os.Create(outname)
+	tmpFile, err := os.CreateTemp(filepath.Dir(outname), ".mimap-*")
 	if err != nil {
-		return errors.Wrapf(err, "Unable to create %q output file", field)
+		return fmt.Errorf("creating tempfile: %w", err)
 	}
-	defer of.Close()
+	// final cleanup, we don't really care about whether it succeeds
+	defer func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	}()
 
-	if _, err = io.Copy(of, buf); err != nil {
+	if _, err = io.Copy(tmpFile, buf); err != nil {
 		return errors.Wrapf(err, "Unable to copy %q file", field)
+	}
+
+	if err = tmpFile.Close(); err != nil {
+		return fmt.Errorf("closing tempfile: %w", err)
+	}
+
+	if err = os.Rename(tmpFile.Name(), outname); err != nil {
+		return fmt.Errorf("moving tempfile into place: %w", err)
 	}
 
 	return nil
