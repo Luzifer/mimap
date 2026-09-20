@@ -61,6 +61,7 @@ func main() {
 		ReadHeaderTimeout: time.Second,
 	}
 
+	logrus.WithField("version", version).Info("mimap started")
 	if err = server.ListenAndServe(); err != nil {
 		logrus.WithError(err).Fatal("running HTTP server")
 	}
@@ -111,7 +112,7 @@ func processFile(navmap, slamlog []byte) {
 		return
 	}
 
-	logrus.Debug("map updated")
+	logrus.Info("map updated")
 }
 
 func storeFile(outname string, content []byte) error {
