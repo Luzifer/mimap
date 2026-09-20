@@ -207,15 +207,14 @@ func parseSLAMLog(data []byte) ([]position, error) {
 func render(source image.Image, positions []position) (*image.NRGBA, error) {
 	bounds := source.Bounds()
 	img := imaging.Resize(source, bounds.Dx()*resizeFactor, bounds.Dy()*resizeFactor, imaging.NearestNeighbor)
-	img = imaging.Rotate270(img)
 
 	centerX := float64(img.Bounds().Dx()) / 2
 	centerY := float64(img.Bounds().Dy()) / 2
 	points := make([]image.Point, len(positions))
 	for i, pos := range positions {
 		points[i] = image.Pt(
-			int(math.Round(centerX+pos.x*coordinateScale)),
-			int(math.Round(centerY+pos.y*coordinateScale)),
+			int(math.Round(centerX+pos.y*coordinateScale)),
+			img.Bounds().Dy()-1-int(math.Round(centerY+pos.x*coordinateScale)),
 		)
 		if i > 0 {
 			drawLine(img, points[i-1], points[i])
@@ -231,7 +230,6 @@ func render(source image.Image, positions []position) (*image.NRGBA, error) {
 		}
 	}
 
-	img = imaging.Rotate90(img)
 	box, ok := boundingBox(img)
 	if !ok {
 		return nil, fmt.Errorf("unable to determine image bounding box")
