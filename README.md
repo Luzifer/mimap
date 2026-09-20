@@ -1,8 +1,3 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/Luzifer/mimap)](https://goreportcard.com/report/github.com/Luzifer/mimap)
-![](https://badges.fyi/github/license/Luzifer/mimap)
-![](https://badges.fyi/github/downloads/Luzifer/mimap)
-![](https://badges.fyi/github/latest-release/Luzifer/mimap)
-
 # Luzifer / mimap
 
 `mimap` is a small web application to receive map updates from a script running on opened Xiaomi Mi Vacuum robots decoupled from the Xiaomi cloud. The image generator is derived from the [dustcloud](https://github.com/dgiese/dustcloud/) image generator patched to resemble the map images used inside the Mi Home application.

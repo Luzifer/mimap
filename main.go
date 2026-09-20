@@ -1,18 +1,20 @@
+// MiMAP Image Generation from Xiaomi Mi RoboRock Mapdata
 package main
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha1" //#nosec:G505 // Only used for file integrity
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/Luzifer/rconfig/v2"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+
+	"github.com/Luzifer/mimap/pkg/mapbuilder"
 )
 
 var (
@@ -25,44 +27,69 @@ var (
 	version = "dev"
 )
 
-func init() {
+func initApp() (err error) {
 	if err := rconfig.ParseAndValidate(&cfg); err != nil {
-		log.Fatalf("Unable to parse commandline options: %s", err)
+		return fmt.Errorf("parsing CLI options: %w", err)
 	}
 
-	if cfg.VersionAndExit {
-		fmt.Printf("mimap %s\n", version)
-		os.Exit(0)
+	l, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		return fmt.Errorf("parsing log-level: %w", err)
 	}
+	logrus.SetLevel(l)
 
-	if l, err := log.ParseLevel(cfg.LogLevel); err != nil {
-		log.WithError(err).Fatal("Unable to parse log level")
-	} else {
-		log.SetLevel(l)
-	}
+	return nil
 }
 
 func main() {
+	var err error
+	if err = initApp(); err != nil {
+		logrus.WithError(err).Fatal("initializing app")
+	}
+
+	if cfg.VersionAndExit {
+		fmt.Printf("mimap %s\n", version) //nolint:forbidigo // Fine to print the version
+		os.Exit(0)
+	}
+
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/map.png", mapHandler)
 
-	log.WithError(http.ListenAndServe(cfg.Listen, nil)).Fatal("HTTP server quit")
+	server := &http.Server{
+		Addr:              cfg.Listen,
+		Handler:           http.DefaultServeMux,
+		ReadHeaderTimeout: time.Second,
+	}
+
+	if err = server.ListenAndServe(); err != nil {
+		logrus.WithError(err).Fatal("running HTTP server")
+	}
 }
 
-func uploadHandler(res http.ResponseWriter, r *http.Request) {
-	if err := storeFile(r, "map", "/data/navmap.ppm"); err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
+func readRequestFile(r *http.Request, field string) ([]byte, error) {
+	expectedHash := r.FormValue(fmt.Sprintf("sum_%s", field))
+
+	f, _, err := r.FormFile(field)
+	if err != nil {
+		return nil, fmt.Errorf("getting form-file: %w", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			logrus.WithError(err).Error("closing request file")
+		}
+	}()
+
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("reading file contents: %w", err)
 	}
 
-	if err := storeFile(r, "slam", "/data/slam.log"); err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
+	//#nosec:G401 // only used for file transfer integrity
+	if hash := fmt.Sprintf("%x", sha1.Sum(raw)); hash != expectedHash {
+		return nil, fmt.Errorf("content hash mismatch: %s != %s", hash, expectedHash)
 	}
 
-	go processFile()
-
-	http.Error(res, "Received your files, generating map...", http.StatusCreated)
+	return raw, nil
 }
 
 func mapHandler(res http.ResponseWriter, r *http.Request) {
@@ -70,22 +97,24 @@ func mapHandler(res http.ResponseWriter, r *http.Request) {
 	http.ServeFile(res, r, "/data/map.png")
 }
 
-func storeFile(r *http.Request, field, outname string) error {
-	f, _, err := r.FormFile(field)
+func processFile(navmap, slamlog []byte) {
+	logrus.Debug("starting map generation")
+
+	mappng, err := mapbuilder.Build(slamlog, navmap)
 	if err != nil {
-		return errors.Wrapf(err, "Unable to retrieve %q file", field)
-	}
-	defer f.Close()
-
-	buf := new(bytes.Buffer)
-	if _, err = io.Copy(buf, f); err != nil {
-		return errors.Wrapf(err, "Unable to read %q file", field)
+		logrus.WithError(err).Error("generating map")
+		return
 	}
 
-	if hash := fmt.Sprintf("%x", sha1.Sum(buf.Bytes())); hash != r.FormValue("sum_"+field) {
-		return fmt.Errorf("File hash for %q did not match: %q != %q", field, hash, r.FormValue("sum_"+field))
+	if err = storeFile("/data/map.png", mappng); err != nil {
+		logrus.WithError(err).Error("storing map to disk")
+		return
 	}
 
+	logrus.Debug("map updated")
+}
+
+func storeFile(outname string, content []byte) error {
 	tmpFile, err := os.CreateTemp(filepath.Dir(outname), ".mimap-*")
 	if err != nil {
 		return fmt.Errorf("creating tempfile: %w", err)
@@ -96,8 +125,8 @@ func storeFile(r *http.Request, field, outname string) error {
 		_ = os.Remove(tmpFile.Name())
 	}()
 
-	if _, err = io.Copy(tmpFile, buf); err != nil {
-		return errors.Wrapf(err, "Unable to copy %q file", field)
+	if _, err = io.Copy(tmpFile, bytes.NewReader(content)); err != nil {
+		return fmt.Errorf("copying file content to disk: %w", err)
 	}
 
 	if err = tmpFile.Close(); err != nil {
@@ -111,16 +140,23 @@ func storeFile(r *http.Request, field, outname string) error {
 	return nil
 }
 
-func processFile() {
-	log.Info("Generating map...")
+func uploadHandler(res http.ResponseWriter, r *http.Request) {
+	var (
+		err             error
+		navmap, slamlog []byte
+	)
 
-	cmd := exec.Command("python", "/src/build_map.py", "-slam", "/data/slam.log", "-map", "/data/navmap.ppm", "-out", "/data/map.png")
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		log.WithError(err).Error("Map generation failed")
+	if navmap, err = readRequestFile(r, "map"); err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Info("Map generated")
+	if slamlog, err = readRequestFile(r, "slam"); err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	go processFile(navmap, slamlog)
+
+	http.Error(res, "Received your files, generating map...", http.StatusCreated)
 }
