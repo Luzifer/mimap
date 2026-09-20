@@ -1,10 +1,9 @@
 default:
 
-test-build-map: test-generate-map
-	sha512sum -c <test/checksums.sha512
+lint:
+	golangci-lint run ./...
 
-test-generate-map: test/navmap.ppm
-	uv run --locked ./build_map.py -slam test/slam.log -map test/navmap.ppm -out test/map.png
+test:
+	go test -v -cover ./...
 
-test/navmap.ppm:
-	gzip -cd $@.gz >$@
+.PHONY: test

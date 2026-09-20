@@ -4,9 +4,6 @@ on:
   push: {}
   workflow_dispatch: {}
 
-permissions:
-  contents: read
-
 env:
   REGISTRY: git.luzifer.io
   IMAGE: registry/mimap
@@ -22,7 +19,7 @@ jobs:
 
       - name: Run Image-Generator Test
         run: |
-          make test-build-map
+          make lint test
 
 
   docker-publish:
