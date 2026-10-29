@@ -30,7 +30,7 @@ jobs:
     runs-on: forgejo
 
     steps:
-      - uses: luzifer/actions/docker-publish@ec81eb02ca63a118624e0c4799ded471223d089c # develop
+      - uses: luzifer/actions/docker-publish@477b5365d3a6b728808bbd4e75debdfed00b5746 # develop
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE }}
           push: ${{ github.ref == 'refs/heads/master' }}
