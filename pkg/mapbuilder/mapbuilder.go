@@ -19,12 +19,18 @@ import (
 const (
 	coordinateScale = 80  // Rendered pixels per SLAM coordinate unit.
 	cropMargin      = 20  // Rendered pixels retained around the content bounding box.
-	estimateFields  = 4   // Fields in an estimate entry: keyword, y, x, and z.
 	fullChannel     = 255 // Maximum value of an 8-bit color channel.
 	lightGray       = 250 // 8-bit channel value of the source map's light gray.
 	markerRadius    = 4   // Rendered pixels from the marker center to each edge.
 	resizeFactor    = 4   // Dimensionless source-map enlargement factor.
 	yellowGreen     = 204 // Green-channel value of the source map's yellow.
+)
+
+const (
+	estimateFields = 4 // Fields in an estimate entry: keyword, y, x, and z.
+	estimateFieldX = 2
+	estimateFieldY = 1
+	estimateFieldZ = 3
 )
 
 type (
@@ -155,16 +161,19 @@ func parseEstimate(fields []string, estimate, lineNumber int) (position, error) 
 		return position{}, fmt.Errorf("line %d: estimate requires three coordinates", lineNumber)
 	}
 
-	y, err := parseFiniteCoordinate(fields[estimate+1])
+	y, err := parseFiniteCoordinate(fields[estimate+estimateFieldY])
 	if err != nil {
-		return position{}, fmt.Errorf("line %d: invalid y coordinate %q", lineNumber, fields[estimate+1])
+		return position{}, fmt.Errorf("line %d: invalid y coordinate %q",
+			lineNumber, fields[estimate+estimateFieldY])
 	}
-	x, err := parseFiniteCoordinate(fields[estimate+2])
+	x, err := parseFiniteCoordinate(fields[estimate+estimateFieldX])
 	if err != nil {
-		return position{}, fmt.Errorf("line %d: invalid x coordinate %q", lineNumber, fields[estimate+2])
+		return position{}, fmt.Errorf("line %d: invalid x coordinate %q",
+			lineNumber, fields[estimate+estimateFieldX])
 	}
-	if _, err = parseFiniteCoordinate(fields[estimate+3]); err != nil {
-		return position{}, fmt.Errorf("line %d: invalid z coordinate %q", lineNumber, fields[estimate+3])
+	if _, err = parseFiniteCoordinate(fields[estimate+estimateFieldZ]); err != nil {
+		return position{}, fmt.Errorf("line %d: invalid z coordinate %q",
+			lineNumber, fields[estimate+estimateFieldZ])
 	}
 
 	return position{x: x, y: y}, nil
