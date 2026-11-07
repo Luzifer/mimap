@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/disintegration/imaging"
+	"github.com/kovidgoyal/imaging"
 	"github.com/spakin/netpbm"
 )
 
@@ -206,7 +206,7 @@ func parseSLAMLog(data []byte) ([]position, error) {
 
 func render(source image.Image, positions []position) (*image.NRGBA, error) {
 	bounds := source.Bounds()
-	img := imaging.Resize(source, bounds.Dx()*resizeFactor, bounds.Dy()*resizeFactor, imaging.NearestNeighbor)
+	img := imaging.AsNRGBA(imaging.Resize(source, bounds.Dx()*resizeFactor, bounds.Dy()*resizeFactor, imaging.NearestNeighbor))
 
 	centerX := float64(img.Bounds().Dx()) / 2
 	centerY := float64(img.Bounds().Dy()) / 2
